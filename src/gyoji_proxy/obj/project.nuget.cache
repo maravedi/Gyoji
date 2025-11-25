@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "dgSpecHash": "o1r6e60cLei2OfCWINKNMwCNomD1g6SjiXlbsurvq9wTgyd6aWcZD6usqW4KV24lPiwylUkUWoWQw22npLBsNA==",
+  "success": true,
+  "projectFilePath": "/workspace/src/gyoji_proxy/gyoji_proxy.csproj",
+  "expectedPackageFiles": [
+    "/home/ubuntu/.nuget/packages/fluxzy.bouncycastle.crypto.async/2.6.0/fluxzy.bouncycastle.crypto.async.2.6.0.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/fluxzy.core/1.30.26/fluxzy.core.1.30.26.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/messagepack/2.5.198/messagepack.2.5.198.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/messagepack.annotations/2.5.198/messagepack.annotations.2.5.198.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/microsoft.net.stringtools/17.6.3/microsoft.net.stringtools.17.6.3.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/sharpziplib/1.4.2/sharpziplib.1.4.2.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/system.componentmodel.annotations/5.0.0/system.componentmodel.annotations.5.0.0.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/system.io.pipelines/8.0.0/system.io.pipelines.8.0.0.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/system.text.json/8.0.6/system.text.json.8.0.6.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/system.threading.channels/8.0.0/system.threading.channels.8.0.0.nupkg.sha512",
+    "/home/ubuntu/.nuget/packages/yamldotnet/13.7.1/yamldotnet.13.7.1.nupkg.sha512"
+  ],
+  "logs": []
+}
