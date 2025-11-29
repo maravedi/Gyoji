@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using Gyoji.Proxy.Core.Models;
 
 internal static class RequestPayloadParser
 {
@@ -108,13 +109,13 @@ internal static class RequestPayloadParser
 
     public static string MergeQuery(RequestSnapshot snapshot, IReadOnlyDictionary<string, string> additions)
     {
-        var merged = new Dictionary<string, string>(snapshot.query_pairs, StringComparer.OrdinalIgnoreCase);
+        var merged = new Dictionary<string, string>(snapshot.QueryPairs, StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in additions)
         {
             merged[key] = value;
         }
 
-        return merged.Count == 0 ? snapshot.path : $"{snapshot.path}?{BuildQuery(merged)}";
+        return merged.Count == 0 ? snapshot.Path : $"{snapshot.Path}?{BuildQuery(merged)}";
     }
 
     private static IReadOnlyDictionary<string, string> ParseBody(string? rawBody)
@@ -216,31 +217,4 @@ internal static class RequestPayloadParser
     }
 }
 
-internal sealed record RequestSnapshot(
-    string raw_body,
-    IReadOnlyDictionary<string, string> body_pairs,
-    IReadOnlyDictionary<string, string> query_pairs,
-    string path,
-    string? query)
-{
-    public bool TryGetValue(string key, out string? value)
-    {
-        if (body_pairs.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value))
-        {
-            return true;
-        }
-
-        if (query_pairs.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value))
-        {
-            return true;
-        }
-
-        value = null;
-        return false;
-    }
-
-    public string? GetValueOrDefault(string key)
-    {
-        return TryGetValue(key, out var value) ? value : null;
-    }
-}
+ 

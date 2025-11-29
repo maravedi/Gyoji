@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33815.507
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gyoji_proxy", "src/gyoji_proxy/gyoji_proxy.csproj", "{A1FAF3F5-78F9-413A-9B5A-4E231D7D7201}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gyoji.Proxy.Core", "src/Gyoji.Proxy.Core/Gyoji.Proxy.Core.csproj", "{5E9486A8-CEBB-4A0E-B74A-2438F0CC0E88}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1FAF3F5-78F9-413A-9B5A-4E231D7D7201}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1FAF3F5-78F9-413A-9B5A-4E231D7D7201}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1FAF3F5-78F9-413A-9B5A-4E231D7D7201}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1FAF3F5-78F9-413A-9B5A-4E231D7D7201}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E9486A8-CEBB-4A0E-B74A-2438F0CC0E88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E9486A8-CEBB-4A0E-B74A-2438F0CC0E88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E9486A8-CEBB-4A0E-B74A-2438F0CC0E88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E9486A8-CEBB-4A0E-B74A-2438F0CC0E88}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

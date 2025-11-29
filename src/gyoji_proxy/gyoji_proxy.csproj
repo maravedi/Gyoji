@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="Fluxzy.Core" Version="1.30.26" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Gyoji.Proxy.Core/Gyoji.Proxy.Core.csproj" />
   </ItemGroup>
 
 </Project>

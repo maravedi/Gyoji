@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Fluxzy.Core;
 using Fluxzy.Rules.Actions;
+using Gyoji.Proxy.Core.Models;
 
 internal static class CheckpointFlow
 {
@@ -60,7 +61,7 @@ internal static class CheckpointFlow
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {
             ProxyLogger.Info("checkpoint_auth_request_missing_secret", new { exchange = context.Exchange.Id });
-            return snapshot.raw_body;
+            return snapshot.RawBody;
         }
 
         var payload = new Dictionary<string, string>
@@ -80,12 +81,12 @@ internal static class CheckpointFlow
                                || RequestPayloadParser.TryGetBoolean(snapshot, "autoFetchLogs", out var camel) && camel);
 
         var sanitizedQuery = RequestPayloadParser.FilterQuery(
-            snapshot.query_pairs,
+            snapshot.QueryPairs,
             key => !key.Equals("code", StringComparison.OrdinalIgnoreCase)
                    && !key.Equals("auto_fetch_logs", StringComparison.OrdinalIgnoreCase)
                    && !key.Equals("autoFetchLogs", StringComparison.OrdinalIgnoreCase));
 
-        var sanitizedBody = RequestPayloadParser.FilterBody(snapshot.body_pairs, ReservedAuthKeys);
+        var sanitizedBody = RequestPayloadParser.FilterBody(snapshot.BodyPairs, ReservedAuthKeys);
         var csrfToken = snapshot.GetValueOrDefault("csrf");
 
         FlowStateStore.Set(context.Exchange, new FlowMetadata(
@@ -108,7 +109,7 @@ internal static class CheckpointFlow
         var accessToken = snapshot.GetValueOrDefault("access_token");
         if (string.IsNullOrWhiteSpace(accessToken))
         {
-            return snapshot.raw_body;
+            return snapshot.RawBody;
         }
 
         context.Exchange.Request.Header.AltReplaceHeaders("Authorization", $"Bearer {accessToken}", true);
@@ -119,7 +120,7 @@ internal static class CheckpointFlow
             context.Exchange.Request.Header.AltReplaceHeaders("x-av-req-id", csrfToken, true);
         }
 
-        var sanitized = RequestPayloadParser.FilterBody(snapshot.body_pairs, ReservedLogKeys);
+        var sanitized = RequestPayloadParser.FilterBody(snapshot.BodyPairs, ReservedLogKeys);
 
         var method = context.Exchange.Request.Header.Method.ToString();
         if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
