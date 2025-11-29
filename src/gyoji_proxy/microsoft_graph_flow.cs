@@ -1,6 +1,7 @@
 using Fluxzy.Core;
 using Fluxzy.Rules.Actions;
 using System.Collections.Generic;
+using Gyoji.Proxy.Core.Models;
 
 internal static class MicrosoftGraphFlow
 {
@@ -13,7 +14,7 @@ internal static class MicrosoftGraphFlow
 
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {
-            return snapshot.raw_body;
+            return snapshot.RawBody;
         }
 
         var grantType = snapshot.GetValueOrDefault("grant_type") ?? "client_credentials";

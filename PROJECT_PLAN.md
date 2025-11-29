@@ -91,9 +91,9 @@ Gyoji/
 
 #### Tasks
 1. **Create Core Project**
-   - [ ] Initialize `Gyoji.Proxy.Core` class library (.NET 8.0)
-   - [ ] Define POCO models (`RequestSnapshot`, `ResponseEnvelope`)
-   - [ ] Add solution file to track all projects
+   - [x] Initialize `Gyoji.Proxy.Core` class library (.NET 8.0)
+   - [x] Define POCO models (`RequestSnapshot`, `ResponseEnvelope`)
+   - [x] Add solution file to track all projects
 
 2. **Extract Configuration**
    - [ ] Move `ProxyOptions` to Core with validation attributes
