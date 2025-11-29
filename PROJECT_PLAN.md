@@ -49,8 +49,8 @@ Gyoji is an authentication proxy that bridges the gap between SumoLogic Universa
 
 ### Azure Functions Model
 - **Trigger Type**: HTTP (isolated worker, .NET 8.0)
-- **Execution Model**: Request-scoped (stateless per invocation)
-- **State Store**: Azure Table Storage or Azure Cache for Redis
+- **Execution Model**: Request-scoped (stateless, no persistent state needed)
+- **State Management**: Local variables within function execution scope
 - **Routing**: Single catch-all HTTP trigger with dynamic path routing
 
 ### Component Structure
@@ -61,11 +61,8 @@ Gyoji/
 │   │   ├── Models/
 │   │   │   ├── RequestSnapshot.cs      # POCO request envelope
 │   │   │   ├── ResponseEnvelope.cs     # POCO response envelope
-│   │   │   └── FlowMetadata.cs         # State correlation metadata
+│   │   │   └── TransformContext.cs     # Request-scoped transformation context
 │   │   ├── Services/
-│   │   │   ├── IStateStore.cs          # State persistence abstraction
-│   │   │   ├── TableStateStore.cs      # Azure Table Storage implementation
-│   │   │   ├── RedisStateStore.cs      # Redis implementation (optional)
 │   │   │   └── HttpClientFactory.cs    # Upstream HTTP client with retry
 │   │   ├── Transformers/
 │   │   │   ├── CheckpointAuthTransformer.cs
@@ -113,10 +110,10 @@ Gyoji/
    - [ ] Convert to accept POCO parameters instead of Fluxzy types
    - [ ] Extract token exchange logic to `MicrosoftGraphTokenService`
 
-5. **State Store Abstraction**
-   - [ ] Define `IStateStore` interface with Get/Set/Remove operations
-   - [ ] Implement `InMemoryStateStore` (for backward compatibility with standalone proxy)
-   - [ ] Add TTL/expiration support to interface
+5. **Request Context Model**
+   - [ ] Create `TransformContext` class to hold request-scoped data during transformation pipeline
+   - [ ] This replaces the need for persistent state - data flows through function execution as local variables
+   - [ ] Maintain `FlowMetadata` model for standalone proxy compatibility (uses in-memory store)
 
 6. **Logging Abstraction**
    - [ ] Make `ProxyLogger` work with `ILogger<T>` for Azure Functions compatibility
@@ -125,13 +122,14 @@ Gyoji/
 #### Acceptance Criteria
 - Core library compiles independently
 - No Fluxzy references in Core project
-- Existing standalone proxy still works using Core library
+- Existing standalone proxy still works using Core library (with its own in-memory state store)
 - Unit tests cover transformation logic (>80% coverage)
+- Transformers accept request context as parameter, return transformed data (no side effects)
 
 ---
 
 ### Phase 2: Azure Functions Infrastructure (Week 2)
-**Objective**: Set up Azure Functions project and distributed state management
+**Objective**: Set up Azure Functions project with HTTP client infrastructure
 
 #### Tasks
 1. **Initialize Function Project**
@@ -140,27 +138,23 @@ Gyoji/
    - [ ] Configure DI container in `Program.cs`
    - [ ] Set up `host.json` with appropriate timeouts and concurrency limits
 
-2. **Implement State Persistence**
-   - [ ] Create `TableStateStore` using Azure.Data.Tables SDK
-   - [ ] Design partition/row key strategy (e.g., `PartitionKey = "flow"`, `RowKey = requestId`)
-   - [ ] Implement TTL cleanup (use Table Storage entity expiration)
-   - [ ] Add retry policy for transient Table Storage failures
-
-3. **Configure HTTP Client**
+2. **Configure HTTP Client**
    - [ ] Set up `IHttpClientFactory` with named clients for Check Point and Microsoft Graph
    - [ ] Configure Polly retry policies (exponential backoff, circuit breaker)
    - [ ] Set timeouts from `ProxyOptions.http_timeout`
+   - [ ] Configure connection pooling and keep-alive settings
 
-4. **Environment Configuration**
+3. **Environment Configuration**
    - [ ] Map all `GYOJI_*` env vars to Azure App Settings
-   - [ ] Configure Azure Key Vault integration for secrets
-   - [ ] Set up managed identity for Key Vault access
+   - [ ] Configure Azure Key Vault integration for secrets (if needed)
+   - [ ] Set up managed identity for Key Vault access (if needed)
+   - [ ] Document configuration mapping from standalone to Function App
 
 #### Acceptance Criteria
-- Function project builds and runs locally with Azurite
-- State persists across function invocations
+- Function project builds and runs locally
 - Configuration loads from `local.settings.json` during development
 - HTTP clients retry transient failures
+- All transformers are registered in DI container
 
 ---
 
@@ -175,21 +169,38 @@ Gyoji/
        [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = "{*path}")]
        HttpRequestData request,
        string path)
+   {
+       // Parse request
+       var snapshot = await RequestParser.ParseAsync(request);
+       var context = new TransformContext(); // Request-scoped, no persistent storage
+
+       // Transform and forward based on target
+       if (IsCheckpointAuth(path)) {
+           var authResponse = await ProcessCheckpointAuth(snapshot, context);
+
+           // Auto-fetch uses context data from same execution
+           if (ShouldAutoFetch(context)) {
+               return await FetchAndReturnLogs(authResponse, context);
+           }
+           return authResponse;
+       }
+       // ... other routes
+   }
    ```
    - [ ] Parse incoming request to `RequestSnapshot`
    - [ ] Route to appropriate transformer based on target URL
-   - [ ] Execute transformation pipeline
+   - [ ] Execute transformation pipeline with request-scoped context
    - [ ] Forward transformed request to upstream API
    - [ ] Transform response and return to caller
 
 2. **Request Routing Logic**
-   - [ ] Inspect `path` parameter or custom headers to determine target (Check Point auth, Check Point logs, Microsoft Graph)
-   - [ ] Alternative: Use different Function routes (`/checkpoint/auth`, `/checkpoint/logs`, `/msgraph/token`)
+   - [ ] Inspect `path` parameter or request headers to determine target API
+   - [ ] Support both transparent proxy mode (path-based) and explicit routes
 
 3. **Auto-Fetch Implementation**
-   - [ ] Store auth request metadata in Table Storage
-   - [ ] Retrieve metadata in auth response handler
-   - [ ] Trigger log fetch asynchronously if enabled
+   - [ ] Store auth request parameters in local `TransformContext` variable
+   - [ ] Pass context through to response handler within same function execution
+   - [ ] Trigger log fetch synchronously if enabled (context data is in-memory)
    - [ ] Return logs or auth envelope to caller
 
 4. **Error Handling**
@@ -201,7 +212,8 @@ Gyoji/
 - Function responds to HTTP requests on all routes
 - Check Point authentication flow completes end-to-end
 - Microsoft Graph token exchange works
-- Auto-fetch retrieves logs after successful auth
+- Auto-fetch retrieves logs after successful auth using in-memory context
+- No persistent state storage required
 - Errors are logged with structured event names
 
 ---
@@ -217,15 +229,15 @@ Gyoji/
    - [ ] Test error cases (missing credentials, malformed JSON, etc.)
 
 2. **Integration Tests**
-   - [ ] Test against live Azure Table Storage (Azurite)
    - [ ] Test HTTP client retry policies with fault injection
    - [ ] Test end-to-end flow with mock Check Point/Graph endpoints
+   - [ ] Verify auto-fetch works with in-memory context passing
 
 3. **Load Testing**
    - [ ] Simulate concurrent SumoLogic collector requests
    - [ ] Validate horizontal scaling behavior (multiple Function instances)
    - [ ] Measure cold start latency (P50, P95, P99)
-   - [ ] Verify no state corruption under concurrent load
+   - [ ] Verify stateless execution handles concurrent load correctly
 
 4. **Compatibility Testing**
    - [ ] Test with real SumoLogic Universal Connector (staging environment)
@@ -247,9 +259,8 @@ Gyoji/
 1. **Infrastructure as Code**
    - [ ] Create Bicep/Terraform templates for:
      - Function App (consumption or premium plan)
-     - Storage Account (for state and function internals)
+     - Storage Account (for function internals only - no app state)
      - Application Insights (for logging/monitoring)
-     - (Optional) Azure Cache for Redis
      - (Optional) API Management for rate limiting/auth
 
 2. **CI/CD Pipeline**
@@ -271,13 +282,13 @@ Gyoji/
    - [ ] Create Application Insights dashboards for:
      - Request throughput and latency
      - Error rates by event type
-     - State store operation metrics
      - Upstream API latency
+     - Auto-fetch success/failure rates
    - [ ] Configure alerts for:
      - High error rates (>5% over 5 minutes)
      - Long cold starts (>10s)
-     - State store failures
      - Upstream API timeouts
+     - Function execution timeouts
 
 #### Acceptance Criteria
 - Infrastructure deploys via automated pipeline
@@ -303,9 +314,9 @@ Gyoji/
    - [ ] Test failover scenarios (Function offline → standalone proxy)
 
 3. **Performance Tuning**
-   - [ ] Adjust Function timeout settings if needed
-   - [ ] Tune state store TTL based on observed request patterns
-   - [ ] Optimize HTTP client connection pooling
+   - [ ] Adjust Function timeout settings if needed (default 5min, max 10min for Consumption)
+   - [ ] Optimize HTTP client connection pooling and keep-alive settings
+   - [ ] Review cold start metrics and consider Premium Plan if needed
 
 4. **Documentation**
    - [ ] Update README with Azure Function deployment instructions
@@ -330,23 +341,36 @@ Gyoji/
 
 ### State Management Strategy
 
-**Option 1: Azure Table Storage (Recommended for MVP)**
-- **Pros**: Low cost, automatic scaling, simple schema
-- **Cons**: Higher latency (10-50ms), eventual consistency
-- **Design**:
-  - PartitionKey: `"gyoji-flow"` (single partition for simplicity)
-  - RowKey: `{requestId}` (SumoLogic provides correlation ID or generate GUID)
-  - TTL: Set `expiresAt` property, manual cleanup or lifecycle policy
+**No Persistent State Required! 🎉**
 
-**Option 2: Azure Cache for Redis**
-- **Pros**: Sub-millisecond latency, atomic operations
-- **Cons**: Higher cost (~$15/month for Basic tier), requires connection management
-- **Design**:
-  - Key: `gyoji:flow:{requestId}`
-  - Value: JSON-serialized `FlowMetadata`
-  - TTL: Redis native EXPIRE command
+After reviewing the OAuth 2.0 Client Credential flow and the current implementation, we've determined that **no persistent state storage is needed**. Here's why:
 
-**Recommendation**: Start with Table Storage for cost optimization. Migrate to Redis if latency becomes an issue (P95 >100ms).
+1. **Session Management**: OAuth sessions are tracked by the client (SumoLogic) and server (Check Point/Graph) via tokens. The proxy doesn't need to maintain session state.
+
+2. **Request-Response Correlation**: In the current Fluxzy proxy, state storage bridges separate request/response filter handlers. In Azure Functions, the entire flow happens within a single execution:
+   ```
+   Request received → Transform → Call upstream → Receive response → Transform → Return
+   ```
+   All data flows through local variables/parameters within the function scope.
+
+3. **Auto-Fetch Feature**: The auto-fetch logic needs query parameters and credentials from the auth request when processing the auth response. In Azure Functions:
+   ```csharp
+   var authParams = ParseAuthRequest(request);      // Step 1: Parse
+   var authResponse = await GetToken(authParams);    // Step 2: Get token
+   if (authParams.ShouldAutoFetch) {                // Step 3: Use same-execution data
+       return await FetchLogs(authResponse.Token, authParams.QueryParams);
+   }
+   ```
+   No storage needed - `authParams` is a local variable!
+
+4. **Standalone Proxy Compatibility**: The existing standalone proxy will keep its in-memory `ConcurrentDictionary` since it uses Fluxzy's async filter model.
+
+**Benefits of Stateless Design**:
+- ✅ Simpler architecture - no distributed storage complexity
+- ✅ Lower cost - no Table Storage or Redis charges
+- ✅ Better performance - no I/O latency for state operations
+- ✅ Easier testing - no external dependencies to mock
+- ✅ True horizontal scaling - no state synchronization concerns
 
 ### Routing Architecture
 
@@ -429,9 +453,9 @@ Current standalone proxy performs auto-fetch synchronously within the auth respo
 **Consumption Plan**:
 - **Function Executions**: 50,000 requests/month = $0 (1M free tier)
 - **Execution Time**: 1s avg × 50k = 50k GB-s = $0.80
-- **Table Storage**: 10k transactions/month + 1GB = $0.10
+- **Storage Account**: Function internals only (~1GB) = $0.02
 - **Application Insights**: 5GB/month (first 5GB free) = $0
-- **Total**: ~$0.90/month (94% cost reduction)
+- **Total**: ~$0.82/month (95% cost reduction)
 
 **Premium Plan** (if needed):
 - **EP1 Instance**: ~$146/month (always-on, faster cold start)
@@ -446,11 +470,11 @@ Current standalone proxy performs auto-fetch synchronously within the auth respo
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
-| **State corruption under concurrent load** | Medium | High | Implement optimistic concurrency control in Table Storage; add integration tests for race conditions |
 | **Azure Function cold start delays auth** | Medium | Medium | Use Premium Plan or implement app warm-up; cache auth tokens in SumoLogic where possible |
 | **Breaking change in Fluxzy removal** | Low | High | Maintain comprehensive test suite; run parallel deployment during migration |
-| **Table Storage latency exceeds timeout** | Low | Medium | Add monitoring for P95 latency; prepare Redis migration path |
+| **Function timeout during auto-fetch** | Low | Medium | Set appropriate timeout in `host.json`; add retry logic in SumoLogic collector if needed |
 | **SumoLogic collector incompatibility** | Low | High | Test with real collector in staging before production cutover |
+| **HTTP client connection pool exhaustion** | Low | Medium | Configure `IHttpClientFactory` with appropriate connection limits; monitor with Application Insights |
 
 ---
 
@@ -475,7 +499,7 @@ Current standalone proxy performs auto-fetch synchronously within the auth respo
 
 ## Open Questions
 
-1. **SumoLogic Request IDs**: Does SumoLogic provide correlation IDs in request headers? If not, how should we generate state keys?
+1. ~~**SumoLogic Request IDs**: Does SumoLogic provide correlation IDs in request headers?~~ ✅ **RESOLVED**: Not needed - no persistent state required.
 2. **Credential Rotation**: How are Check Point/Graph credentials rotated? Do we need to support dynamic credential loading?
 3. **Multi-Tenancy**: Will a single Function instance serve multiple SumoLogic accounts? If so, how is tenant isolation enforced?
 4. **Backward Compatibility**: Should we maintain the standalone proxy indefinitely for on-premises scenarios?
